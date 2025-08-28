@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Football Picks</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .card-bg {
+            background-color: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+        }
+        .btn-grad {
+            background-image: linear-gradient(to right, #1D4ED8 0%, #3B82F6 51%, #1D4ED8 100%);
+            transition: 0.5s;
+            background-size: 200% auto;
+            color: white;
+        }
+        .btn-grad:hover {
+            background-position: right center;
+        }
+        .radio-custom:checked + label {
+            background-color: #2563EB;
+            border-color: #1D4ED8;
+            color: white;
+        }
+        .modal-bg {
+            background-color: rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white antialiased">
+
+    <div id="app" class="container mx-auto p-4 md:p-8 max-w-7xl">
+        
+        <!-- Header -->
+        <header class="text-center mb-8 md:mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-600">Weekly Football Picks</h1>
+            <p class="text-gray-400 mt-2 text-lg">Predict the winners and climb the leaderboard!</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Picks Section -->
+            <div class="lg:col-span-2 space-y-8">
+
+                <!-- User Info -->
+                <div class="card-bg rounded-xl p-6 shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">Your Info</h2>
+                    <p id="userStatus" class="text-sm text-gray-400 mb-4">Connecting to server...</p>
+                    <div>
+                        <label for="userName" class="block text-sm font-medium text-gray-300 mb-1">Your Name</label>
+                        <input type="text" id="userName" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none transition" placeholder="Enter your name">
+                    </div>
+                </div>
+
+                <!-- Game Picks Form -->
+                <form id="picksForm">
+                    <!-- Pro Games -->
+                    <div id="pro-games" class="mb-8">
+                        <h3 class="text-3xl font-bold mb-4 text-blue-400">Pro Games</h3>
+                        <div id="pro-games-container" class="grid md:grid-cols-1 gap-6"></div>
+                    </div>
+                    <!-- College Games -->
+                    <div id="college-games" class="mb-8">
+                        <h3 class="text-3xl font-bold mb-4 text-green-400">College Games</h3>
+                        <div id="college-games-container" class="grid md:grid-cols-1 gap-6"></div>
+                    </div>
+                    <!-- High School Games -->
+                    <div id="high-school-games" class="mb-8">
+                        <h3 class="text-3xl font-bold mb-4 text-yellow-400">High School Games</h3>
+                        <div id="high-school-games-container" class="grid md:grid-cols-1 gap-6"></div>
+                    </div>
+
+                    <button type="submit" id="submitButton" class="w-full btn-grad font-bold py-3 px-4 rounded-lg text-lg shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300">
+                        Submit Picks
+                    </button>
+                </form>
+            </div>
+
+            <!-- Leaderboard & Rules Section -->
+            <div class="lg:col-span-1 space-y-8">
+                <!-- Leaderboard -->
+                <div class="card-bg rounded-xl p-6 shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">Leaderboard</h2>
+                    <div id="leaderboard-container" class="space-y-3">
+                        <p class="text-gray-400">Loading leaderboard...</p>
+                    </div>
+                </div>
+
+                <!-- Rules -->
+                <div class="card-bg rounded-xl p-6 shadow-lg">
+                    <h2 class="text-2xl font-semibold mb-4 border-b border-gray-700 pb-2">How to Play</h2>
+                    <ul class="list-disc list-inside text-gray-300 space-y-2">
+                        <li>Predict the winner for 3 Pro, 3 College, and 3 High School games each week.</li>
+                        <li>Pro and College games are picked against the point spread.</li>
+                        <li>High School games are straight-up winner picks.</li>
+                        <li>Each correct pick earns you 1 point.</li>
+                        <li>Submissions lock at the start of the first game of the week.</li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Custom Modal -->
+    <div id="modal" class="fixed inset-0 modal-bg items-center justify-center hidden">
+        <div class="bg-gray-800 rounded-lg shadow-2xl p-6 max-w-sm mx-auto text-center border border-gray-700">
+            <h3 id="modal-title" class="text-xl font-bold mb-2"></h3>
+            <p id="modal-message" class="text-gray-300 mb-6"></p>
+            <button id="modal-close" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition">Close</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Weekly Game Configuration ---
+        // IMPORTANT: Update this object each week with the new games.
+        const weekId = 'week-1-2025'; // Change this every week! e.g., 'week-2-2025'
+        const games = {
+            pro: [
+                { id: 'pro1', teamA: 'Kansas City Chiefs', teamB: 'Baltimore Ravens', spread: -3.5 },
+                { id: 'pro2', teamA: 'Green Bay Packers', teamB: 'Philadelphia Eagles', spread: 1.5 },
+                { id: 'pro3', teamA: 'Dallas Cowboys', teamB: 'Cleveland Browns', spread: -1.0 }
+            ],
+            college: [
+                { id: 'col1', teamA: 'Clemson', teamB: 'Georgia', spread: -13.5 },
+                { id: 'col2', teamA: 'Notre Dame', teamB: 'Texas A&M', spread: 1.5 },
+                { id: 'col3', teamA: 'LSU', teamB: 'USC', spread: -6.5 }
+            ],
+            highSchool: [
+                { id: 'hs1', teamA: 'Lemoore Tigers', teamB: 'Hanford Bullpups' },
+                { id: 'hs2', teamA: 'Clovis North Broncos', teamB: 'Central Grizzlies' },
+                { id: 'hs3', teamA: 'Buchanan Bears', teamB: 'Liberty Patriots' }
+            ]
+        };
+        // --- End of Configuration ---
+
+        // DOM Elements
+        const proContainer = document.getElementById('pro-games-container');
+        const collegeContainer = document.getElementById('college-games-container');
+        const hsContainer = document.getElementById('high-school-games-container');
+        const picksForm = document.getElementById('picksForm');
+        const userNameInput = document.getElementById('userName');
+        const leaderboardContainer = document.getElementById('leaderboard-container');
+        const userStatusEl = document.getElementById('userStatus');
+        const submitButton = document.getElementById('submitButton');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+        const modalClose = document.getElementById('modal-close');
+
+        // Firebase Setup
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-football-picks';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        
+        let app, db, auth, userId;
+
+        // --- Modal Logic ---
+        function showModal(title, message) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        modalClose.addEventListener('click', () => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        });
+
+        // --- Game Rendering ---
+        function createGameCard(game, category) {
+            const spreadTextA = game.spread ? `(${game.spread > 0 ? '+' : ''}${game.spread})` : '';
+            const spreadTextB = game.spread ? `(${game.spread * -1 > 0 ? '+' : ''}${game.spread * -1})` : '';
+
+            return `
+                <div class="card-bg rounded-lg p-4 shadow-md border border-gray-700/50">
+                    <div class="grid grid-cols-2 gap-2 items-center">
+                        <!-- Team A -->
+                        <div class="team-choice">
+                            <input type="radio" id="${game.id}-a" name="${game.id}" value="${game.teamA}" class="hidden radio-custom" required>
+                            <label for="${game.id}-a" class="block text-center p-3 border-2 border-gray-600 rounded-lg cursor-pointer transition hover:border-blue-500">
+                                <span class="font-semibold">${game.teamA}</span>
+                                <span class="text-sm text-gray-400 block">${spreadTextA}</span>
+                            </label>
+                        </div>
+                        <!-- Team B -->
+                        <div class="team-choice">
+                            <input type="radio" id="${game.id}-b" name="${game.id}" value="${game.teamB}" class="hidden radio-custom">
+                            <label for="${game.id}-b" class="block text-center p-3 border-2 border-gray-600 rounded-lg cursor-pointer transition hover:border-blue-500">
+                                <span class="font-semibold">${game.teamB}</span>
+                                <span class="text-sm text-gray-400 block">${spreadTextB}</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderGames() {
+            proContainer.innerHTML = games.pro.map(game => createGameCard(game, 'pro')).join('');
+            collegeContainer.innerHTML = games.college.map(game => createGameCard(game, 'college')).join('');
+            hsContainer.innerHTML = games.highSchool.map(game => createGameCard(game, 'hs')).join('');
+        }
+
+        // --- Firebase Logic ---
+        async function initializeFirebase() {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        userStatusEl.textContent = `Connected as User: ${userId.substring(0, 8)}...`;
+                        await checkForExistingPicks();
+                        listenForLeaderboardUpdates();
+                    } else {
+                        userStatusEl.textContent = 'Authenticating...';
+                    }
+                });
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Firebase Initialization Error:", error);
+                userStatusEl.textContent = 'Error connecting to the server.';
+                showModal('Connection Error', 'Could not connect to the database. Please refresh the page.');
+            }
+        }
+        
+        async function checkForExistingPicks() {
+            if (!userId) return;
+            const docRef = doc(db, `artifacts/${appId}/public/data/picks/${weekId}_${userId}`);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                userNameInput.value = data.userName;
+                userNameInput.disabled = true;
+                submitButton.disabled = true;
+                submitButton.textContent = 'Picks Submitted for this Week';
+                submitButton.classList.remove('btn-grad');
+                submitButton.classList.add('bg-gray-600', 'cursor-not-allowed');
+                showModal('Picks Locked', 'You have already submitted your picks for this week.');
+
+                // Disable radio buttons
+                document.querySelectorAll('input[type="radio"]').forEach(radio => {
+                    radio.disabled = true;
+                    // Show the user's previous selection
+                    if(data.picks[radio.name] === radio.value){
+                        radio.checked = true;
+                    }
+                });
+            }
+        }
+
+        picksForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userName = userNameInput.value.trim();
+            if (!userName) {
+                showModal('Missing Info', 'Please enter your name before submitting.');
+                return;
+            }
+            if (!userId) {
+                showModal('Authentication Error', 'Cannot submit picks. User not authenticated.');
+                return;
+            }
+
+            const formData = new FormData(picksForm);
+            const picks = {};
+            let allPicked = true;
+            const allGameIds = [...games.pro, ...games.college, ...games.highSchool].map(g => g.id);
+            
+            for (const gameId of allGameIds) {
+                const pick = formData.get(gameId);
+                if (pick) {
+                    picks[gameId] = pick;
+                } else {
+                    allPicked = false;
+                    break;
+                }
+            }
+
+            if (!allPicked) {
+                showModal('Incomplete Picks', 'Please make a selection for every game.');
+                return;
+            }
+            
+            submitButton.disabled = true;
+            submitButton.textContent = 'Submitting...';
+
+            try {
+                // Store picks
+                const picksDocRef = doc(db, `artifacts/${appId}/public/data/picks/${weekId}_${userId}`);
+                await setDoc(picksDocRef, {
+                    userId,
+                    userName,
+                    weekId,
+                    picks,
+                    submittedAt: new Date()
+                });
+
+                // Update leaderboard entry (or create it)
+                const leaderboardDocRef = doc(db, `artifacts/${appId}/public/data/leaderboard/${userId}`);
+                const leaderboardDoc = await getDoc(leaderboardDocRef);
+                if (leaderboardDoc.exists()) {
+                    // In a real app, you'd update the score here after grading.
+                    // For now, we just ensure the user is on the board.
+                } else {
+                    await setDoc(leaderboardDocRef, {
+                        userName,
+                        score: 0 // Initial score
+                    });
+                }
+                
+                showModal('Success!', 'Your picks have been submitted successfully.');
+                await checkForExistingPicks(); // Lock the form
+
+            } catch (error) {
+                console.error("Error submitting picks: ", error);
+                showModal('Submission Error', 'There was an error submitting your picks. Please try again.');
+                submitButton.disabled = false;
+                submitButton.textContent = 'Submit Picks';
+            }
+        });
+        
+        function listenForLeaderboardUpdates() {
+            const q = query(collection(db, `artifacts/${appId}/public/data/picks`));
+            
+            onSnapshot(q, (snapshot) => {
+                const weeklySubmissions = {};
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if(data.weekId === weekId) {
+                       weeklySubmissions[data.userId] = data.userName;
+                    }
+                });
+                
+                renderLeaderboard(weeklySubmissions);
+
+            }, (error) => {
+                console.error("Leaderboard snapshot error: ", error);
+                leaderboardContainer.innerHTML = `<p class="text-red-400">Error loading leaderboard.</p>`;
+            });
+        }
+
+        function renderLeaderboard(submissions) {
+            leaderboardContainer.innerHTML = ''; // Clear previous content
+            
+            if (Object.keys(submissions).length === 0) {
+                leaderboardContainer.innerHTML = `<p class="text-gray-400">No picks submitted for this week yet.</p>`;
+                return;
+            }
+
+            const sortedUsers = Object.entries(submissions).sort((a, b) => a[1].localeCompare(b[1]));
+
+            const list = document.createElement('ul');
+            list.className = 'space-y-2';
+
+            sortedUsers.forEach(([id, name], index) => {
+                const item = document.createElement('li');
+                item.className = 'flex justify-between items-center bg-gray-800/50 p-3 rounded-md';
+                item.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="text-sm font-bold text-gray-400 w-6">${index + 1}.</span>
+                        <span class="font-medium text-gray-200">${name}</span>
+                    </div>
+                    <span class="text-xs font-semibold bg-green-500/20 text-green-300 py-1 px-2 rounded-full">Submitted</span>
+                `;
+                list.appendChild(item);
+            });
+            leaderboardContainer.appendChild(list);
+        }
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderGames();
+            initializeFirebase();
+        });
+
+    </script>
+</body>
+</html>
