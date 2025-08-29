@@ -160,7 +160,14 @@
 
         // Firebase Setup
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-football-picks';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const firebaseConfig = {
+  apiKey: "AIzaSyAhvY3-DgTQq9tLWDSo-_CVmMM3XZ2hWsY",
+  authDomain: "huddle-club-weekly-picks.firebaseapp.com",
+  projectId: "huddle-club-weekly-picks",
+  storageBucket: "huddle-club-weekly-picks.firebasestorage.app",
+  messagingSenderId: "190632595892",
+  appId: "1:190632595892:web:8a52d3795082ebcac122e1"
+};
         
         let app, db, auth, userId;
 
